@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURALCODELAB // SCRAPER v1.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <!-- Iconos Phosphor -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            --neon-green: #0f0;
+            --dark-green: #003300;
+            --black-bg: #050505;
+            --scanline: rgba(0, 255, 0, 0.1);
+        }
+
+        body {
+            background-color: var(--black-bg);
+            color: var(--neon-green);
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* Efecto CRT y Scanlines */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 5px var(--neon-green), 0 0 10px var(--neon-green);
+        }
+
+        .border-neon {
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 5px var(--neon-green), inset 0 0 5px var(--neon-green);
+        }
+
+        .input-hacker {
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            font-family: 'VT323', monospace;
+            font-size: 1.2rem;
+            outline: none;
+        }
+        .input-hacker:focus {
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        /* Animación de parpadeo del cursor */
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #001100;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-green);
+        }
+
+        /* Animación de carga */
+        @keyframes loadingBar {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .animate-load {
+            animation: loadingBar 2s ease-in-out infinite;
+        }
+
+        /* Tabla Estilo Hacker */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: rgba(0, 255, 0, 0.2);
+            text-align: left;
+            padding: 4px;
+            border-bottom: 1px solid var(--neon-green);
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 4px;
+            border-bottom: 1px solid #003300;
+            font-size: 0.9rem;
+        }
+        tr:hover td {
+            background: rgba(0, 255, 0, 0.1);
+            color: #fff;
+        }
+        a.hacker-link {
+            color: var(--neon-green);
+            text-decoration: underline;
+        }
+        a.hacker-link:hover {
+            background-color: var(--neon-green);
+            color: black;
+            text-decoration: none;
+        }
+
+        /* Tabs */
+        .tab-btn {
+            opacity: 0.5;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active {
+            opacity: 1;
+            border-bottom: 2px solid var(--neon-green);
+            text-shadow: 0 0 5px var(--neon-green);
+        }
+    </style>
+</head>
+<body class="crt flex flex-col h-screen p-4">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-4 border-b border-green-900 pb-2">
+        <div>
+            <div class="text-3xl font-bold glow-text tracking-widest flex items-center gap-2">
+                <i class="ph ph-terminal-window"></i> NEURALCODELAB_SCRAPER_V1.0
+            </div>
+            <div class="text-xs text-green-600 tracking-wider pl-10 opacity-70 font-mono">
+                >> DEV_KEY: DEVLEWIS // AUTHOR: IRAN LEWIS
+            </div>
+        </div>
+        <div class="text-xl flex gap-4 items-center">
+            <span id="system-clock">00:00:00</span>
+            <span class="text-green-700">|</span>
+            <span id="connection-status" class="blink">OFFLINE</span>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 overflow-hidden">
+        
+        <!-- Panel Izquierdo: Controles y Filtros (3 cols) -->
+        <div class="md:col-span-3 flex flex-col gap-4">
+            
+            <!-- Panel de Control -->
+            <div class="border-neon p-4 bg-black bg-opacity-50 flex flex-col gap-3">
+                <h2 class="text-xl border-b border-green-800 mb-1 text-green-300">>> CONFIGURACION</h2>
+                
+                <div>
+                    <label class="text-sm opacity-80">TARGET (Dominio):</label>
+                    <input type="text" id="targetUrl" class="input-hacker px-2 py-1 w-full" value="amazon.com">
+                </div>
+
+                <div>
+                    <label class="text-sm opacity-80">MARCA / QUERY:</label>
+                    <input type="text" id="brandFilter" class="input-hacker px-2 py-1 w-full" placeholder="Ej: Nike, Sony, Adidas">
+                </div>
+
+                <div>
+                    <label class="text-sm opacity-80">KEYWORDS (Opcional):</label>
+                    <input type="text" id="keywordFilter" class="input-hacker px-2 py-1 w-full" placeholder="Ej: air, pro, max">
+                </div>
+
+                <div class="flex gap-2 mt-4">
+                    <button onclick="toggleScraping()" id="btn-action" class="flex-1 border-neon bg-green-900 hover:bg-green-700 text-white py-2 font-bold transition-all hover:shadow-[0_0_15px_#0f0] flex items-center justify-center gap-2">
+                        <i class="ph ph-play"></i> INICIAR
+                    </button>
+                    <button onclick="clearData()" title="Limpiar todo" class="border border-green-700 text-green-500 hover:text-white hover:bg-green-900 px-3 transition-all">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+                
+                <button onclick="downloadCSV()" id="btn-export" class="border border-green-700 text-green-400 hover:bg-green-900 py-1 text-sm mt-2 disabled:opacity-30" disabled>
+                    <i class="ph ph-download-simple"></i> EXPORTAR CSV
+                </button>
+            </div>
+
+            <!-- Panel de Estadísticas -->
+            <div class="border-neon p-4 flex-1 flex flex-col relative overflow-hidden bg-black bg-opacity-50">
+                <h2 class="text-xl border-b border-green-800 mb-3 text-green-300">>> ESTADO</h2>
+                
+                <div class="grid grid-cols-2 gap-4 text-center mb-4">
+                    <div class="bg-green-900 bg-opacity-20 p-2 border border-green-800">
+                        <div class="text-xs opacity-70">TOTAL ITEMS</div>
+                        <div id="count-items" class="text-2xl font-bold glow-text">0</div>
+                    </div>
+                    <div class="bg-green-900 bg-opacity-20 p-2 border border-green-800">
+                        <div class="text-xs opacity-70">RPS</div>
+                        <div id="speed-indicator" class="text-2xl font-bold glow-text">0</div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-2">
+                    <div class="text-xs opacity-70 mb-1">TIEMPO EJECUCION</div>
+                    <div id="timer-display" class="text-3xl font-bold font-mono tracking-widest text-white">00:00:00</div>
+                </div>
+
+                <div class="mt-auto opacity-50 text-xs">
+                    <p>>> PROXY: ROTATIVO (243 IPs)</p>
+                    <div class="w-full h-1 bg-green-900 mt-1">
+                        <div id="activity-bar" class="h-full bg-green-500 w-0"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Central: Tabs (Consola / Database) (6 cols) -->
+        <div class="md:col-span-6 border-neon p-0 flex flex-col bg-black bg-opacity-80 relative">
+            <!-- Tabs Header -->
+            <div class="flex border-b border-green-800 bg-green-900 bg-opacity-20 p-2 gap-4">
+                <div onclick="switchTab('console')" id="tab-console" class="tab-btn active text-lg font-bold px-2">
+                    <i class="ph ph-terminal"></i> CONSOLA
+                </div>
+                <div onclick="switchTab('db')" id="tab-db" class="tab-btn text-lg font-bold px-2">
+                    <i class="ph ph-database"></i> DATABASE (Resultados)
+                </div>
+            </div>
+            
+            <!-- Vista Consola -->
+            <div id="view-console" class="flex-1 overflow-y-auto font-mono text-sm space-y-1 p-4 block">
+                <div class="opacity-50">Esperando parámetros de búsqueda...</div>
+                <div class="opacity-50 text-green-700">Sistema listo.</div>
+                <span class="blink">_</span>
+            </div>
+
+            <!-- Vista Database (Tabla) -->
+            <div id="view-db" class="flex-1 overflow-y-auto hidden bg-black">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="10%">ID</th>
+                            <th width="40%">PRODUCTO / TITULO</th>
+                            <th width="15%">PRECIO</th>
+                            <th width="15%">ESTADO</th>
+                            <th width="20%">ENLACE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-body">
+                        <!-- Filas insertadas aquí -->
+                    </tbody>
+                </table>
+                <div id="empty-db-msg" class="text-center opacity-50 mt-10">Sin datos capturados. Inicia el proceso.</div>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Keywords y Preview (3 cols) -->
+        <div class="md:col-span-3 flex flex-col gap-4">
+            
+            <div class="border-neon p-4 h-1/2 flex flex-col">
+                <h2 class="text-xl border-b border-green-800 mb-3 text-green-300">>> KEYWORDS TOP</h2>
+                <div id="keywords-list" class="flex-1 overflow-y-auto space-y-2 text-sm pr-1">
+                    <p class="text-center opacity-50 mt-10">Esperando stream de datos...</p>
+                </div>
+            </div>
+
+            <div class="border-neon p-4 h-1/2 flex flex-col">
+                <h2 class="text-xl border-b border-green-800 mb-3 text-green-300">>> ULTIMO HALLAZGO</h2>
+                <div id="preview-box" class="flex-1 border border-green-900 p-2 flex flex-col items-center justify-center text-center opacity-80">
+                    <i class="ph ph-scan text-4xl mb-2 opacity-30"></i>
+                    <span class="text-xs opacity-50">SCANNING...</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Variables de Estado ---
+        let isScraping = false;
+        let startTime;
+        let timerInterval;
+        let scrapeInterval;
+        let itemCount = 0;
+        let capturedData = [];
+        let keywordMap = {};
+
+        // --- Configuración de Generación ---
+        const prefixes = ["Nuevo", "Oferta", "Lote", "Original", "Premium", "Usado", "Refurbished", "Limitado"];
+        const categories = ["Smartphone", "Laptop", "Sneakers", "Watch", "Console", "Monitor", "Headphones", "Camera"];
+        const adjetives = ["High-Performance", "Wireless", "Vintage", "2024 Edition", "Pro Max", "Ultra", "Gaming", "Portable"];
+        
+        // Palabras de relleno para ignorar en keywords
+        const stopWords = ["de", "para", "con", "el", "la", "y", "en", "new", "the", "for", "with", "a", "pro", "edition"];
+
+        // --- Funciones de Sistema ---
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('system-clock').innerText = now.toLocaleTimeString();
+        }, 1000);
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+
+            if (tab === 'console') {
+                document.getElementById('view-console').classList.remove('hidden');
+                document.getElementById('view-db').classList.add('hidden');
+            } else {
+                document.getElementById('view-console').classList.add('hidden');
+                document.getElementById('view-db').classList.remove('hidden');
+            }
+        }
+
+        // --- Core Logic ---
+
+        function toggleScraping() {
+            const btn = document.getElementById('btn-action');
+            const status = document.getElementById('connection-status');
+            const bar = document.getElementById('activity-bar');
+            const target = document.getElementById('targetUrl').value;
+            const brand = document.getElementById('brandFilter').value;
+
+            if (!target) {
+                logToConsole(">> ERROR: TARGET URL REQUERIDA", "text-red-500");
+                return;
+            }
+
+            if (!isScraping) {
+                // START
+                isScraping = true;
+                btn.innerHTML = '<i class="ph ph-stop"></i> DETENER';
+                btn.classList.replace('bg-green-900', 'bg-red-900');
+                btn.classList.add('border-red-500');
+                
+                status.innerText = "ONLINE - SCRAPING";
+                status.classList.remove('blink', 'text-green-700');
+                status.classList.add('text-green-400');
+                bar.classList.add('animate-load');
+
+                logToConsole(`>> INICIANDO SESION EN: ${target}`, "text-yellow-400");
+                if(brand) logToConsole(`>> FILTRANDO POR: ${brand}`, "text-green-300");
+                
+                startTimer();
+                // Velocidad variable entre 300ms y 1200ms para realismo
+                loopScraping();
+                document.getElementById('btn-export').disabled = true;
+
+            } else {
+                // STOP
+                stopScraping();
+            }
+        }
+
+        function stopScraping() {
+            isScraping = false;
+            clearInterval(timerInterval);
+            clearTimeout(scrapeInterval);
+
+            const btn = document.getElementById('btn-action');
+            const status = document.getElementById('connection-status');
+            const bar = document.getElementById('activity-bar');
+
+            btn.innerHTML = '<i class="ph ph-play"></i> REANUDAR';
+            btn.classList.replace('bg-red-900', 'bg-green-900');
+            btn.classList.remove('border-red-500');
+
+            status.innerText = "PAUSADO";
+            status.classList.add('blink');
+            status.classList.remove('text-green-400');
+            bar.classList.remove('animate-load');
+            bar.style.width = '0%';
+            
+            document.getElementById('speed-indicator').innerText = "0";
+            logToConsole(">> TAREA COMPLETADA O PAUSADA.", "text-red-400");
+            
+            if(capturedData.length > 0) {
+                document.getElementById('btn-export').disabled = false;
+            }
+        }
+
+        function loopScraping() {
+            if (!isScraping) return;
+
+            simulateItemFound();
+            
+            // Random delay para simular red
+            const delay = Math.random() * 800 + 200;
+            scrapeInterval = setTimeout(loopScraping, delay);
+        }
+
+        function simulateItemFound() {
+            // 1. Construir Datos
+            const brandInput = document.getElementById('brandFilter').value;
+            const keywordInput = document.getElementById('keywordFilter').value;
+            const target = document.getElementById('targetUrl').value;
+            
+            // Generar título realista
+            let title = "";
+            const useBrand = brandInput ? true : Math.random() > 0.8;
+            const brandName = brandInput || "Generic";
+
+            if (useBrand) title += `${brandName} `;
+            else title += `${prefixes[Math.floor(Math.random() * prefixes.length)]} `;
+
+            // Si hay keyword input, usarla a veces
+            if (keywordInput && Math.random() > 0.5) {
+                const keys = keywordInput.split(',');
+                title += keys[Math.floor(Math.random() * keys.length)].trim() + " ";
+            } else {
+                title += categories[Math.floor(Math.random() * categories.length)] + " ";
+            }
+            
+            title += adjetives[Math.floor(Math.random() * adjetives.length)];
+            
+            // Añadir ID aleatorio
+            const id = Math.floor(Math.random() * 90000) + 10000;
+            title += ` (Ref-${id})`;
+
+            const price = (Math.random() * 800 + 20).toFixed(2);
+            
+            // ** GENERAR LINK REAL **
+            // Creamos un link de Google Search para que sea funcional
+            const cleanTitle = title.replace(/\(Ref-\d+\)/, '').trim();
+            const realLink = `https://www.google.com/search?q=site:${target}+${encodeURIComponent(cleanTitle)}`;
+            
+            const dataObj = {
+                id: id,
+                title: title,
+                price: price,
+                link: realLink,
+                time: new Date().toLocaleTimeString()
+            };
+
+            // 2. Guardar
+            capturedData.push(dataObj);
+            itemCount++;
+
+            // 3. UI Updates
+            updateStats();
+            logToConsole(`[${dataObj.time}] FOUND: ${title.substring(0, 25)}... $${price}`, "text-white");
+            addToTable(dataObj);
+            analyzeKeywords(title);
+            updatePreview(dataObj);
+        }
+
+        function addToTable(item) {
+            const tbody = document.getElementById('db-body');
+            const row = document.createElement('tr');
+            
+            // Ocultar mensaje vacío
+            document.getElementById('empty-db-msg').style.display = 'none';
+
+            row.innerHTML = `
+                <td class="text-xs font-mono text-green-500">#${item.id}</td>
+                <td class="font-bold text-white truncate" style="max-width: 150px;" title="${item.title}">${item.title}</td>
+                <td class="text-green-300 font-mono">$${item.price}</td>
+                <td><span class="text-xs bg-green-900 px-1 text-white">200 OK</span></td>
+                <td><a href="${item.link}" target="_blank" class="hacker-link text-xs">VER LINK <i class="ph ph-arrow-square-out"></i></a></td>
+            `;
+            
+            // Insertar al principio
+            tbody.insertBefore(row, tbody.firstChild);
+
+            // Limitar filas en DOM para no crashear
+            if (tbody.children.length > 200) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('count-items').innerText = itemCount;
+            // RPS fake
+            document.getElementById('speed-indicator').innerText = (Math.random() * 3 + 1).toFixed(1);
+        }
+
+        function logToConsole(html, colorClass = "") {
+            const consoleDiv = document.getElementById('view-console');
+            const entry = document.createElement('div');
+            entry.innerHTML = html;
+            if(colorClass) entry.className = colorClass;
+            
+            if (consoleDiv.childElementCount > 100) consoleDiv.removeChild(consoleDiv.firstChild);
+            
+            consoleDiv.appendChild(entry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function analyzeKeywords(text) {
+            const words = text.toLowerCase().replace(/[()0-9-]/g, '').split(/\s+/);
+            
+            words.forEach(w => {
+                if (w.length < 3 || stopWords.includes(w)) return;
+                keywordMap[w] = (keywordMap[w] || 0) + 1;
+            });
+
+            // Actualizar UI cada 5 items para rendimiento
+            if (itemCount % 5 === 0) renderKeywords();
+        }
+
+        function renderKeywords() {
+            const sorted = Object.entries(keywordMap).sort((a, b) => b[1] - a[1]).slice(0, 15);
+            const list = document.getElementById('keywords-list');
+            
+            let html = '';
+            sorted.forEach(([word, count], i) => {
+                const width = Math.min(100, (count / itemCount) * 500); // Escala visual
+                html += `
+                    <div class="flex items-center gap-2 text-xs hover:bg-green-900 hover:bg-opacity-50 px-1">
+                        <span class="w-4 text-gray-500">${i+1}</span>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <span class="text-green-300">${word}</span>
+                                <span class="text-white">${count}</span>
+                            </div>
+                            <div class="h-0.5 bg-green-800 w-full mt-0.5">
+                                <div class="h-full bg-green-400" style="width: ${width}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            list.innerHTML = html;
+        }
+
+        function updatePreview(item) {
+            const box = document.getElementById('preview-box');
+            box.innerHTML = `
+                <div class="w-full text-left p-3 border border-green-600 bg-black shadow-[0_0_10px_rgba(0,255,0,0.1)]">
+                    <div class="flex justify-between text-xs text-gray-400 mb-2">
+                        <span>ID: ${item.id}</span>
+                        <span>LIVE</span>
+                    </div>
+                    <div class="text-lg font-bold text-white leading-tight mb-2">${item.title}</div>
+                    <div class="flex justify-between items-end border-t border-green-900 pt-2">
+                        <div class="text-2xl text-green-400 font-mono">$${item.price}</div>
+                        <a href="${item.link}" target="_blank" class="bg-green-800 hover:bg-green-600 text-white text-xs px-2 py-1">VISITAR</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Utilidades ---
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const diff = Date.now() - startTime;
+                const d = new Date(diff);
+                document.getElementById('timer-display').innerText = d.toISOString().substr(11, 8);
+            }, 1000);
+        }
+
+        function downloadCSV() {
+            if(capturedData.length === 0) return;
+            
+            let csvContent = "data:text/csv;charset=utf-8,ID,Titulo,Precio,Link,Hora\n";
+            capturedData.forEach(row => {
+                // Escapar comas en titulo
+                const cleanTitle = row.title.replace(/,/g, '');
+                csvContent += `${row.id},${cleanTitle},${row.price},${row.link},${row.time}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "nexus_data_extraction.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function clearData() {
+            capturedData = [];
+            itemCount = 0;
+            keywordMap = {};
+            document.getElementById('db-body').innerHTML = '';
+            document.getElementById('empty-db-msg').style.display = 'block';
+            document.getElementById('view-console').innerHTML = '<span class="blink">_</span>';
+            document.getElementById('count-items').innerText = '0';
+            document.getElementById('keywords-list').innerHTML = '';
+            document.getElementById('btn-export').disabled = true;
+        }
+
+    </script>
+</body>
+</html>
